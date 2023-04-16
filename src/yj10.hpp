@@ -15,52 +15,32 @@ public:
         Error
     };
 
-private:
-    modbus_t *mb;
-    std::array<uint16_t, 35> input_regs;   // 输入寄存器组
-    std::array<uint16_t, 12> holding_regs; // 保持寄存器组
-    uint16_t write_buf[12];
-    void ThrowException();
-
-    const uint16_t *ReadInputRegisters(int start_addr, int num)
-    {
-        if (modbus_read_input_registers(mb, start_addr, num, input_regs.data() + start_addr) == -1)
-        {
-            ThrowException();
-        }
-        return input_regs.data() + start_addr;
-    }
-
-    const uint16_t *ReadHoldingRegisters(int start_addr, int num)
-    {
-        if (modbus_read_registers(mb, start_addr, num, holding_regs.data() + start_addr) == -1)
-        {
-            ThrowException();
-        }
-        return holding_regs.data() + start_addr;
-    }
-
-    void WriteHoldingRegisters(int start_addr, int num, const uint16_t *data)
-    {
-        if (modbus_write_registers(mb, start_addr, num, data) == -1)
-        {
-            ThrowException();
-        }
-    }
-
-    void WriteHoldingRegister(int reg_addr, const uint16_t data)
-    {
-        if (modbus_write_register(mb, reg_addr, data) == -1)
-        {
-            ThrowException();
-        }
-    }
-
-public:
+    /**
+     * @brief yj10 排爆机械臂
+     *
+     * @param device the name of the serial port handled by the OS, eg. "/dev/ttyS0" or "/dev/ttyUSB0".
+     * On Windows, it's necessary to prepend COM name with "\.\" for COM number greater than 9, eg. "\\.\COM10".
+     * See http://msdn.microsoft.com/en-us/library/aa365247(v=vs.85).aspx for details
+     *
+     * @param device_id 机械臂 id
+     * @param baud 波特率
+     * @param parity 'N' for none, 'E' for even, 'O' for odd
+     * @param data_bit The number of bits of data, the allowed values are 5, 6, 7 and 8.
+     * @param stop_bit The bits of stop, the allowed values are 1 and 2.
+     */
     Yj10(const std::string device, int device_id = 0x01, int baud = 9600, char parity = 'N', int data_bit = 8, int stop_bit = 1);
     ~Yj10();
 
+    /**
+     * @brief 建立连接。连接以后才能通信
+     *
+     */
     void Connect();
+
+    /**
+     * @brief 关闭连接
+     *
+     */
     void Close();
 
     /**
@@ -97,63 +77,55 @@ public:
         ReadHoldingRegisters(0x6, 5);
     }
 
+    /**
+     * @brief 写入单个关节位置 PWM
+     *
+     * @param index 关节 id，范围：[0,4]
+     * @param pwm 关节 pwm 值
+     * @note 0: 肩关节.偏航；1: 肩关节.俯仰；2：肘关节；3：腕关节.俯仰；4：腕关节.滚转；
+     */
     void WriteJoint(int index, uint16_t pwm)
     {
-        if (index >= 0 && index <= 5)
+        if (index >= 0 && index <= 4)
         {
             WriteHoldingRegister(index, pwm);
         }
     }
 
-    void WriteAllJoints(uint16_t pwm[5])
-    {
-        for (int i = 0; i < 5; i++)
-        {
-            write_buf[i] = pwm[i];
-        }
+    /**
+     * @brief 写入所有关节位置 PWM
+     *
+     * @param pwms 各个关节的值
+     */
+    void WriteAllJoints(std::array<uint16_t, 5> pwms);
 
-        WriteHoldingRegisters(0, 5, write_buf);
-    }
+    /**
+     * @brief 写入所有关节位置 PWM
+     *
+     * @param pwm 各个关节的值，数组个数为5
+     */
+    void WriteAllJoints(uint16_t pwm[]);
 
-    void WriteAllJoints(std::array<uint16_t, 5> pwms)
-    {
-        for (int i = 0; i < 5; i++)
-        {
-            write_buf[i] = pwms.at(i);
-        }
+    /**
+     * @brief 给机械爪发指令
+     *
+     * @param state 期望机械爪到达哪个状态。
+     * @note 为下列值之一：(Yj10::ClamperState::) Stop, Close, Open
+     */
+    void WriteClamperInstruction(ClamperState state);
 
-        WriteHoldingRegisters(0, 5, write_buf);
-    }
-
-    void WriteClamperInstruction(ClamperState state)
-    {
-        uint16_t data;
-        switch (state)
-        {
-        case ClamperState::Stop:
-            data = 0;
-            break;
-        case ClamperState::Close:
-            data = 1;
-            break;
-        case ClamperState::Open:
-            data = 2;
-            break;
-
-        default:
-            data = 0;
-            break;
-        }
-        WriteHoldingRegister(0x6, data);
-    }
-
+    /**
+     * @brief 设置机械爪闭合电流
+     *
+     * @param current_mA 毫安
+     */
     void WriteClamperClosingCurrent(uint16_t current_mA)
     {
         WriteHoldingRegister(0x8, current_mA);
     }
 
     /**
-     * @brief 各个关节的PWM值，读取前需要使用 ReadAllJointsPwm() 更新
+     * @brief 一个关节的 PWM 值，读取前需要使用 ReadAllJointsPwm() 更新
      *
      * @param index 范围 [0,4]（index = 5在该型号中没有）
      * @return uint16_t PWM，(500~2500)
@@ -170,6 +142,10 @@ public:
         }
     }
 
+    /**
+     * @brief 各个关节的 PWM 值，读取前需要使用 ReadAllJointsPwm() 更新
+     *
+     */
     std::array<uint16_t, 5> Joints() const
     {
         std::array<uint16_t, 5> result;
@@ -185,33 +161,64 @@ public:
      *
      * @return ClamperState
      */
-    ClamperState Clamper() const
-    {
-        switch (holding_regs.at(0x07))
-        {
-        case 0:
-            return ClamperState::Middle;
-            break;
-        case 1:
-            return ClamperState::Close;
-            break;
-        case 2:
-            return ClamperState::Open;
-            break;
-
-        default:
-            return ClamperState::Error;
-            break;
-        }
-    }
+    ClamperState Clamper() const;
 
     /**
-     * @brief 夹持器当前电流
+     * @brief 夹持器当前电流，读取前需要使用 ReadClamper() 更新
      *
      * @return uint16_t 电流 (mA)
      */
     uint16_t ClamperCurrent() const
     {
         return holding_regs.at(0xA);
+    }
+
+private:
+    modbus_t *mb;
+    std::array<uint16_t, 35> input_regs;   // 输入寄存器组
+    std::array<uint16_t, 12> holding_regs; // 保持寄存器组
+    uint16_t write_buf[12];
+
+    void ThrowException();
+
+    /**
+     * @brief 读取输入寄存器，从 start_addr 开始连续往后读取 num 个
+     *
+     * @param start_addr
+     * @param num
+     * @return const uint16_t* 读到的数据的首地址
+     */
+    const uint16_t *ReadInputRegisters(int start_addr, int num);
+
+    /**
+     * @brief 读取保持寄存器，从 start_addr 开始连续往后读取 num 个
+     *
+     * @param start_addr
+     * @param num
+     * @return const uint16_t* 读到的数据的首地址
+     */
+    const uint16_t *ReadHoldingRegisters(int start_addr, int num);
+
+    /**
+     * @brief 写入保持寄存器，从 start_addr 开始连续往后写入 num 个
+     *
+     * @param start_addr
+     * @param num
+     * @param data 要写入的数据，数组个数要等于 num
+     */
+    void WriteHoldingRegisters(int start_addr, int num, const uint16_t *data);
+
+    /**
+     * @brief 写入单个保持寄存器
+     *
+     * @param reg_addr 寄存器地址
+     * @param data 要写入的数据，
+     */
+    void WriteHoldingRegister(int reg_addr, const uint16_t data)
+    {
+        if (modbus_write_register(mb, reg_addr, data) == -1)
+        {
+            ThrowException();
+        }
     }
 };
