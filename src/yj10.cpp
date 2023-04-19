@@ -1,6 +1,8 @@
 #include "yj10.hpp"
 #include <stdexcept>
 #include <cstring>
+#include <iostream>
+#include <thread>
 
 // #define DEBUG
 
@@ -28,9 +30,8 @@ Yj10::ClamperState Yj10::Clamper() const
 
 void Yj10::ThrowException()
 {
-    // string str;
-    // str.append("Modbus connection failed: ").append(modbus_strerror(errno));
-    // throw runtime_error(str);
+    auto str_err = modbus_strerror(errno);
+    throw runtime_error(str_err);
 }
 
 const uint16_t *Yj10::ReadInputRegisters(int start_addr, int num)
@@ -59,27 +60,11 @@ void Yj10::WriteHoldingRegisters(int start_addr, int num, const uint16_t *data)
     }
 }
 
-Yj10::Yj10(const std::string device, int device_id, int baud, char parity, int data_bit, int stop_bit)
+Yj10::Yj10()
 {
     input_regs.fill(0);
     holding_regs.fill(0);
     memset(write_buf, 0, sizeof(write_buf));
-
-    mb = modbus_new_rtu(device.c_str(), baud, parity, data_bit, stop_bit);
-
-    if (mb == nullptr)
-    {
-        ThrowException();
-    }
-
-    modbus_set_slave(mb, device_id);
-    // modbus_set_response_timeout(mb, 10, 0);
-    // modbus_set_indication_timeout(mb, 10, 0);
-    // modbus_set_byte_timeout(mb, 10, 0);
-
-#ifdef DEBUG
-    modbus_set_debug(mb, true);
-#endif // DEBUG
 }
 
 Yj10::~Yj10()
@@ -87,8 +72,25 @@ Yj10::~Yj10()
     modbus_free(mb);
 }
 
-void Yj10::Connect()
+void Yj10::Connect(const std::string device, int device_id, int baud, char parity, int data_bit, int stop_bit)
 {
+    mb = modbus_new_rtu(device.c_str(), baud, parity, data_bit, stop_bit);
+
+    if (mb == nullptr)
+    {
+        ThrowException();
+    }
+
+    // 设置超时时间
+    modbus_set_response_timeout(mb, 0, 100);
+    // modbus_set_indication_timeout(mb, 3, 0);
+    // modbus_set_byte_timeout(mb, 3, 0);
+
+#ifdef DEBUG
+    modbus_set_debug(mb, true);
+#endif // DEBUG
+
+    modbus_set_slave(mb, device_id);
     if (modbus_connect(mb) != 0)
     {
         ThrowException();
@@ -98,6 +100,30 @@ void Yj10::Connect()
 void Yj10::Close()
 {
     modbus_close(mb);
+}
+
+void Yj10::ResetPose()
+{
+    bool has_retried = false;
+    while (true)
+    {
+        try
+        {
+            WriteAllJoints(reset_pwms);
+            if (has_retried == true)
+            {
+                cout << "ResetPose success" << endl;
+            }
+
+            break;
+        }
+        catch (const std::exception &e)
+        {
+            cerr << "ResetPose failed: " << e.what() << ". Retrying..." << endl;
+            has_retried = true;
+            this_thread::sleep_for(0.5s);
+        }
+    }
 }
 
 void Yj10::WriteAllJoints(uint16_t pwm[])

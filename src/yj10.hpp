@@ -28,20 +28,26 @@ public:
      * @param data_bit The number of bits of data, the allowed values are 5, 6, 7 and 8.
      * @param stop_bit The bits of stop, the allowed values are 1 and 2.
      */
-    Yj10(const std::string device, int device_id = 0x01, int baud = 9600, char parity = 'N', int data_bit = 8, int stop_bit = 1);
+    Yj10();
     ~Yj10();
 
     /**
      * @brief 建立连接。连接以后才能通信
      *
      */
-    void Connect();
+    void Connect(const std::string device, int device_id = 0x01, int baud = 9600, char parity = 'N', int data_bit = 8, int stop_bit = 1);
 
     /**
      * @brief 关闭连接
      *
      */
     void Close();
+
+    /**
+     * @brief 回到初始位姿
+     *
+     */
+    void ResetPose();
 
     /**
      * @brief 从机械臂读取所有的输入寄存器
@@ -178,6 +184,7 @@ private:
     std::array<uint16_t, 35> input_regs;   // 输入寄存器组
     std::array<uint16_t, 12> holding_regs; // 保持寄存器组
     uint16_t write_buf[12];
+    const std::array<uint16_t, 5> reset_pwms = {1500, 1100, 1100, 1800, 1500}; // 初始位姿
 
     void ThrowException();
 

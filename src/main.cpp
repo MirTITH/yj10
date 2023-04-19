@@ -47,55 +47,87 @@ void ReadArm(Yj10 &arm)
 
 int main(int, char **)
 {
-    Yj10 arm("/dev/ttyUSB0");
+    Yj10 arm;
 
-    arm.Connect();
+    arm.Connect("/dev/ttyUSB0");
 
     cout << "Connected" << endl;
 
-    ReadArm(arm);
+    arm.ResetPose();
 
-    // uint16_t pwm, id;
+    try
+    {
+        ReadArm(arm);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+
+    uint16_t pwm, id;
 
     while (true)
     {
-        // cout << "Please enter id pwm:";
-        // cin >> id >> pwm;
 
-        // cout << "Writing id: " << id << ", pwm: " << pwm << endl;
-        // arm.WriteJoint(id, pwm);
+        // ReadArm(arm);
+        // this_thread::sleep_for(0.1s);
 
-        int16_t instruct = 0;
-        Yj10::ClamperState state;
+        // if (pwms.at(3) >= 1600)
+        // {
+        //     delta = -10;
+        // }
+        // else if (pwms.at(3) <= 1400)
+        // {
+        //     delta = 10;
+        // }
 
-        cin >> instruct;
+        // pwms.at(3) += delta;
 
-        switch (instruct)
+        cout << "Please enter id pwm:";
+        cin >> id >> pwm;
+
+        cout << "Writing id: " << id << ", pwm: " << pwm << endl;
+
+        try
         {
-        case 0:
-            state = Yj10::ClamperState::Stop;
-            break;
-        case 1:
-            state = Yj10::ClamperState::Close;
-            break;
-        case 2:
-            state = Yj10::ClamperState::Open;
-            break;
-
-        default:
-            state = Yj10::ClamperState::Stop;
-            break;
+            arm.WriteJoint(id, pwm);
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << '\n';
         }
 
-        arm.WriteClamperInstruction(state);
-        this_thread::sleep_for(0.1s);
-        for (int i = 0; i < 5; i++)
-        {
-            cout << i << ": ";
+        //     int16_t instruct = 0;
+        //     Yj10::ClamperState state;
 
-            ReadArm(arm);
-            this_thread::sleep_for(0.1s);
-        }
+        //     cin >> instruct;
+
+        //     switch (instruct)
+        //     {
+        //     case 0:
+        //         state = Yj10::ClamperState::Stop;
+        //         break;
+        //     case 1:
+        //         state = Yj10::ClamperState::Close;
+        //         break;
+        //     case 2:
+        //         state = Yj10::ClamperState::Open;
+        //         break;
+
+        //     default:
+        //         state = Yj10::ClamperState::Stop;
+        //         break;
+        //     }
+
+        //     arm.WriteClamperInstruction(state);
+        //     this_thread::sleep_for(0.1s);
+        //     for (int i = 0; i < 5; i++)
+        //     {
+        //         cout << i << ": ";
+
+        //         ReadArm(arm);
+        //         this_thread::sleep_for(0.1s);
+        //     }
     }
 
     return 0;
