@@ -62,6 +62,7 @@ void Yj10::WriteHoldingRegisters(int start_addr, int num, const uint16_t *data)
 
 Yj10::Yj10()
 {
+    mb = nullptr;
     input_regs.fill(0);
     holding_regs.fill(0);
     memset(write_buf, 0, sizeof(write_buf));
@@ -69,7 +70,10 @@ Yj10::Yj10()
 
 Yj10::~Yj10()
 {
-    modbus_free(mb);
+    if (mb != nullptr)
+    {
+        modbus_free(mb);
+    }
 }
 
 void Yj10::Connect(const std::string device, int device_id, int baud, char parity, int data_bit, int stop_bit)

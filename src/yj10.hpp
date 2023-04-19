@@ -18,21 +18,22 @@ public:
     /**
      * @brief yj10 排爆机械臂
      *
-     * @param device the name of the serial port handled by the OS, eg. "/dev/ttyS0" or "/dev/ttyUSB0".
-     * On Windows, it's necessary to prepend COM name with "\.\" for COM number greater than 9, eg. "\\.\COM10".
-     * See http://msdn.microsoft.com/en-us/library/aa365247(v=vs.85).aspx for details
-     *
-     * @param device_id 机械臂 id
-     * @param baud 波特率
-     * @param parity 'N' for none, 'E' for even, 'O' for odd
-     * @param data_bit The number of bits of data, the allowed values are 5, 6, 7 and 8.
-     * @param stop_bit The bits of stop, the allowed values are 1 and 2.
      */
     Yj10();
     ~Yj10();
 
     /**
-     * @brief 建立连接。连接以后才能通信
+     * @brief 建立连接
+     *
+     * @param device the name of the serial port handled by the OS, eg. "/dev/ttyS0" or "/dev/ttyUSB0".
+     * On Windows, it's necessary to prepend COM name with "\.\" for COM number greater than 9, eg. "\\.\COM10".
+     * See http://msdn.microsoft.com/en-us/library/aa365247(v=vs.85).aspx for details
+     *
+     * @param device_id 机械臂 id （出厂值为 0x01）
+     * @param baud 波特率
+     * @param parity 'N' for none, 'E' for even, 'O' for odd
+     * @param data_bit The number of bits of data, the allowed values are 5, 6, 7 and 8.
+     * @param stop_bit The bits of stop, the allowed values are 1 and 2.
      *
      */
     void Connect(const std::string device, int device_id = 0x01, int baud = 9600, char parity = 'N', int data_bit = 8, int stop_bit = 1);
